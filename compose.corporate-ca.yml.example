@@ -1,0 +1,11 @@
+# Optional Compose override for networks that inspect outbound TLS.
+# Usage: docker compose -f compose.yml -f compose.corporate-ca.yml.example build
+services:
+  trunk:
+    build:
+      secrets:
+        - corporate_ca
+
+secrets:
+  corporate_ca:
+    file: ${CORPORATE_CA_CERT_PATH:?Set CORPORATE_CA_CERT_PATH in .env}

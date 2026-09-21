@@ -1,0 +1,209 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color-scheme: light;
+  --sidebar-width: 220px;
+  --topbar-height: 64px;
+  --background: #f4f6f8;
+  --surface: #ffffff;
+  --surface-muted: #f7f8fa;
+  --text: #172033;
+  --muted: #667085;
+  --border: #e1e5eb;
+  --border-strong: #b9c3d1;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --shadow-sm: 0 1px 2px #1018280a;
+  --shadow-md: 0 5px 15px #10182812;
+  --shadow-lg: 0 16px 36px #10182824;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0f141d;
+  --surface: #171e29;
+  --surface-muted: #1e2734;
+  --text: #e6eaf0;
+  --muted: #99a4b5;
+  --border: #2c3747;
+  --border-strong: #526077;
+  --accent: #60a5fa;
+  --accent-strong: #93c5fd;
+  --accent-soft: #1e3a5f;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--background);
+  color: var(--text);
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--background);
+}
+button,
+input,
+select {
+  font-family: inherit;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+main {
+  margin-left: var(--sidebar-width);
+  padding-top: var(--topbar-height);
+  min-height: 100vh;
+}
+.mock-banner {
+  background: #fef3c7;
+  color: #854d0e;
+  border-bottom: 1px solid #fde68a;
+  padding: 0.38rem 2rem;
+  text-align: center;
+  font-size: 0.67rem;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+}
+.content {
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  padding: 2rem;
+}
+.page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.8rem;
+}
+.page-heading h1 {
+  font-size: 1.55rem;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+.page-heading p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin: 0.4rem 0 0;
+  line-height: 1.5;
+}
+.eyebrow {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-size: 0.65rem;
+  font-weight: 750;
+  margin: 0 0 0.6rem;
+}
+.section {
+  margin-top: 2rem;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.section-header h2 {
+  margin: 0;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.section-header a {
+  font-size: 0.7rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.compact .app-grid {
+  gap: 0.55rem;
+}
+.empty-state {
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  padding: 2.5rem 1.5rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.8rem;
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+}
+.filter-input {
+  width: min(330px, 100%);
+  height: 38px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 0 0.8rem;
+  font-size: 0.78rem;
+}
+.text-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.75rem;
+}
+@media (max-width: 1180px) {
+  .app-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 800px) {
+  main {
+    margin-left: 0;
+  }
+  .content {
+    padding: 1.5rem;
+  }
+  .app-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .content {
+    padding: 1.1rem;
+  }
+  .page-heading {
+    display: block;
+  }
+  .page-heading > :last-child {
+    margin-top: 1rem;
+  }
+  .app-grid {
+    grid-template-columns: 1fr;
+  }
+  .mock-banner {
+    padding-inline: 3.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.yarn/install-state.gz
+.svelte-kit/
+build/
+data/*.db
+data/*.db-*
+data/*.sqlite
+data/*.sqlite-*
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+*.log

@@ -1,0 +1,148 @@
+categories:
+  - { name: General, order: 100 }
+  - { name: Automation, order: 200 }
+  - { name: Electrical, order: 300 }
+  - { name: Furnace, order: 400 }
+  - { name: Network, order: 500 }
+
+# Demo entries are loaded only when ENABLE_DEMO_APPS=true. Replace them with site URLs before production.
+applications:
+  - id: maintenance-reference
+    display:
+      name: Maintenance Reference
+      description: Procedures, drawings, and maintenance reference material
+      category: General
+      icon: book-open
+      order: 100
+      new: false
+    route: { url: null }
+    access: { visibility: guest }
+    search: { tags: [procedures, drawings, manuals, reference] }
+    health: { type: none }
+    demo: true
+
+  - id: plc-tools
+    display:
+      name: PLC Tools
+      description: Controller diagnostics and engineering utilities
+      category: Automation
+      icon: cpu
+      order: 100
+      new: false
+    route: { url: null }
+    access: { visibility: guest }
+    search: { tags: [plc, controls, diagnostics, automation] }
+    health: { type: none }
+    demo: true
+
+  - id: plc-backup
+    display:
+      name: PLC Backup
+      description: Review controller backup status and restore points
+      category: Automation
+      icon: database-backup
+      order: 200
+      new: true
+    route: { url: null }
+    access: { visibility: authenticated }
+    search: { tags: [plc, backup, restore, controller] }
+    health: { type: none }
+    demo: true
+
+  - id: profibus-tools
+    display:
+      name: Profibus Tools
+      description: Fieldbus diagnostics and node troubleshooting
+      category: Automation
+      icon: workflow
+      order: 300
+      new: false
+    route: { url: null }
+    access: { visibility: authenticated }
+    search: { tags: [profibus, fieldbus, network, diagnostics] }
+    health: { type: none }
+    demo: true
+
+  - id: drive-tools
+    display:
+      name: Drive Tools
+      description: Variable-frequency drive maintenance utilities
+      category: Electrical
+      icon: gauge
+      order: 100
+      new: false
+    route: { url: null }
+    access: { visibility: authenticated }
+    search: { tags: [drive, vfd, motor, electrical] }
+    health: { type: none }
+    demo: true
+
+  - id: pyrometer-tools
+    display:
+      name: Pyrometer Tools
+      description: Pyrometer calibration and signal diagnostics
+      category: Electrical
+      icon: thermometer
+      order: 200
+      new: false
+    route: { url: null }
+    access: { visibility: authenticated }
+    search: { tags: [pyrometer, temperature, calibration, sensor] }
+    health: { type: none }
+    demo: true
+
+  - id: roll-monitor
+    display:
+      name: Roll Monitor
+      description: Tunnel furnace roll monitoring and diagnostics
+      category: Furnace
+      icon: monitor
+      order: 100
+      new: true
+    route: { url: null }
+    access: { visibility: guest }
+    search: { tags: [rolls, encoder, furnace, vibration] }
+    health: { type: none }
+    demo: true
+
+  - id: encoder-tools
+    display:
+      name: Encoder Tools
+      description: Encoder alignment, counts, and fault diagnostics
+      category: Furnace
+      icon: rotate-cw
+      order: 200
+      new: false
+    route: { url: null }
+    access: { visibility: authenticated }
+    search: { tags: [encoder, rolls, alignment, furnace] }
+    health: { type: none }
+    demo: true
+
+  - id: layer-3-bridge
+    display:
+      name: Layer 3 Bridge
+      description: Operations network routing and bridge utilities
+      category: Network
+      icon: network
+      order: 100
+      new: false
+    route: { url: null }
+    access: { visibility: guest }
+    search: { tags: [layer 3, routing, bridge, network] }
+    health: { type: none }
+    demo: true
+
+  - id: network-tools
+    display:
+      name: Network Tools
+      description: Connectivity tests and switch diagnostics
+      category: Network
+      icon: ethernet-port
+      order: 200
+      new: false
+    route: { url: null }
+    access: { visibility: authenticated }
+    search: { tags: [switch, ping, ethernet, network] }
+    health: { type: none }
+    demo: true

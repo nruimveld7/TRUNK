@@ -1,0 +1,9 @@
+.git
+.env
+node_modules
+.svelte-kit
+build
+data/*.db*
+coverage
+playwright-report
+test-results
