@@ -12,7 +12,10 @@ export const GET: RequestHandler = async ({ locals, url }) => {
   if (authError) throw error(401, `Microsoft sign-in failed: ${authError}`);
   if (!transaction || !code || !state || state !== transaction.state)
     throw error(400, 'Authentication state validation failed');
-  const user = await redeemAuthorizationCode(code, transaction.verifier, transaction.nonce);
-  setSessionUser(locals.sessionId, user);
+  const result = await redeemAuthorizationCode(code, transaction.verifier, transaction.nonce);
+  setSessionUser(locals.sessionId, result.user, {
+    accessToken: result.accessToken,
+    expiresAt: result.expiresAt
+  });
   throw redirect(303, '/');
 };

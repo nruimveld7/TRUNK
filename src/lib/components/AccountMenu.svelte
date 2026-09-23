@@ -1,9 +1,10 @@
 <script lang="ts">
   import { ChevronDown, ExternalLink, LogIn, LogOut, Settings, Star, Clock3 } from 'lucide-svelte';
-  import type { SessionUser } from '$lib/types';
+  import type { AccessRole, SessionUser } from '$lib/types';
   import { preferencesOpen } from '$lib/stores/ui';
   export let user: SessionUser | null;
   export let csrfToken: string;
+  export let accessRole: AccessRole | null;
   let open = false;
   $: initials =
     user?.displayName
@@ -24,7 +25,7 @@
     <span class:user-avatar={user} class:guest-avatar={!user}>{user ? initials : '○'}</span>
     <span class="account-copy"
       ><strong>{user?.displayName ?? 'Guest'}</strong><small
-        >{user?.department ?? 'Limited access'}</small
+        >{user ? (accessRole ?? 'Access pending') : 'Limited access'}</small
       ></span
     >
     <ChevronDown size={15} />
@@ -42,6 +43,9 @@
         </div>
       </div>
       {#if user?.mock}<div class="mock-label">Development mock identity</div>{/if}
+      {#if user && !accessRole}<div class="pending-label">
+          TRUNK access has not been assigned
+        </div>{/if}
       <button
         role="menuitem"
         on:click={() => {
@@ -50,6 +54,9 @@
         }}><Settings size={16} />Preferences</button
       >
       {#if user}
+        {#if accessRole === 'Maintainer'}
+          <a role="menuitem" href="/admin"><Settings size={16} />Administration</a>
+        {/if}
         <a role="menuitem" href="/favorites"><Star size={16} />Manage Favorites</a>
         <a role="menuitem" href="/recent"><Clock3 size={16} />Recent Applications</a>
         {#if !user.mock}<a
@@ -225,6 +232,14 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-weight: 700;
+  }
+  .pending-label {
+    margin: 0.15rem 0.6rem 0.4rem;
+    padding: 0.4rem;
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 4px;
+    font-size: 0.7rem;
   }
   :global(.end) {
     margin-left: auto;

@@ -5,5 +5,8 @@ import { loadRegistry, visibleApplications } from '$lib/server/registry';
 
 export const GET: RequestHandler = ({ locals }) =>
   json({
-    statuses: visibleApplications(loadRegistry(), locals.user).map((app) => publicHealth(app.id))
+    statuses: visibleApplications(
+      loadRegistry(),
+      locals.user && locals.accessRole ? locals.user : null
+    ).map((app) => publicHealth(app.id))
   });

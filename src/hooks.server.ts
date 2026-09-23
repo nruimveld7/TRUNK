@@ -1,5 +1,6 @@
 import { error, json, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { getConfig } from '$lib/server/config';
+import { syncIdentity } from '$lib/server/access';
 import { getDatabase } from '$lib/server/database';
 import { startHealthMonitor } from '$lib/server/health';
 import { loadRegistry } from '$lib/server/registry';
@@ -21,6 +22,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   const session = resolveSession(event.cookies);
   event.locals.sessionId = session.id;
   event.locals.user = session.user;
+  event.locals.accessRole = session.user ? syncIdentity(session.user) : null;
   event.locals.csrfToken = session.csrfToken;
 
   if (!['GET', 'HEAD', 'OPTIONS'].includes(event.request.method)) {

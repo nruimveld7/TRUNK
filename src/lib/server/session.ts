@@ -81,10 +81,30 @@ export function resolveSession(cookies: Cookies): {
   return { ...createSession(cookies), user: null };
 }
 
-export function setSessionUser(sessionId: string, user: SessionUser | null): void {
+export function setSessionUser(
+  sessionId: string,
+  user: SessionUser | null,
+  tokenData?: { accessToken: string; expiresAt: number }
+): void {
   getDatabase()
-    .prepare('UPDATE sessions SET user_json = ? WHERE id = ?')
-    .run(user ? JSON.stringify(user) : null, sessionId);
+    .prepare(
+      'UPDATE sessions SET user_json = ?, access_token = ?, token_expires_at = ? WHERE id = ?'
+    )
+    .run(
+      user ? JSON.stringify(user) : null,
+      tokenData?.accessToken ?? null,
+      tokenData?.expiresAt ?? null,
+      sessionId
+    );
+}
+
+export function getSessionAccessToken(sessionId: string): string | null {
+  const row = getDatabase()
+    .prepare('SELECT access_token, token_expires_at FROM sessions WHERE id=?')
+    .get(sessionId) as { access_token: string | null; token_expires_at: number | null } | undefined;
+  return row?.access_token && row.token_expires_at && row.token_expires_at > Date.now()
+    ? row.access_token
+    : null;
 }
 
 export function destroySession(cookies: Cookies, sessionId: string | null): void {

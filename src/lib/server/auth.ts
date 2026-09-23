@@ -1,18 +1,44 @@
 import { createHash, randomBytes } from 'node:crypto';
+import fs from 'node:fs';
 import { ConfidentialClientApplication, CryptoProvider, type AccountInfo } from '@azure/msal-node';
 import type { SessionUser } from '$lib/types';
 import { getConfig } from './config';
 
 function client(): ConfidentialClientApplication {
   const config = getConfig();
+  const certificate =
+    config.ENTRA_CLIENT_CERT_PRIVATE_KEY_PATH && config.ENTRA_CLIENT_CERT_PUBLIC_CERT_PATH
+      ? loadCertificate(
+          config.ENTRA_CLIENT_CERT_PRIVATE_KEY_PATH,
+          config.ENTRA_CLIENT_CERT_PUBLIC_CERT_PATH
+        )
+      : undefined;
   return new ConfidentialClientApplication({
     auth: {
       clientId: config.ENTRA_CLIENT_ID!,
       authority: `https://login.microsoftonline.com/${config.ENTRA_TENANT_ID}`,
-      clientSecret: config.ENTRA_CLIENT_SECRET!
+      ...(certificate
+        ? { clientCertificate: certificate }
+        : { clientSecret: config.ENTRA_CLIENT_SECRET! })
     }
   });
 }
+
+function loadCertificate(privateKeyPath: string, certificatePath: string) {
+  const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+  const certificate = fs.readFileSync(certificatePath, 'utf8');
+  const der = Buffer.from(
+    certificate.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s+/g, ''),
+    'base64'
+  );
+  return {
+    privateKey,
+    thumbprint: createHash('sha1').update(der).digest('hex').toUpperCase(),
+    thumbprintSha256: createHash('sha256').update(der).digest('hex').toUpperCase()
+  };
+}
+
+const SCOPES = ['openid', 'profile', 'email', 'offline_access', 'User.ReadBasic.All'];
 
 export async function authorizationRequest(): Promise<{
   url: string;
@@ -25,7 +51,7 @@ export async function authorizationRequest(): Promise<{
   const nonce = randomBytes(32).toString('base64url');
   const { verifier, challenge } = await new CryptoProvider().generatePkceCodes();
   const url = await client().getAuthCodeUrl({
-    scopes: ['openid', 'profile', 'email'],
+    scopes: SCOPES,
     redirectUri: config.ENTRA_REDIRECT_URI!,
     state,
     nonce,
@@ -39,11 +65,11 @@ export async function redeemAuthorizationCode(
   code: string,
   verifier: string,
   expectedNonce: string
-): Promise<SessionUser> {
+): Promise<{ user: SessionUser; accessToken: string; expiresAt: number }> {
   const config = getConfig();
   const result = await client().acquireTokenByCode({
     code,
-    scopes: ['openid', 'profile', 'email'],
+    scopes: SCOPES,
     redirectUri: config.ENTRA_REDIRECT_URI!,
     codeVerifier: verifier
   });
@@ -54,7 +80,11 @@ export async function redeemAuthorizationCode(
     throw new Error('Authentication tenant validation failed');
   const objectId = String(claims.oid ?? '');
   if (!objectId) throw new Error('Authenticated identity has no object ID');
-  return accountToUser(result.account, claims, objectId);
+  return {
+    user: accountToUser(result.account, claims, objectId),
+    accessToken: result.accessToken,
+    expiresAt: result.expiresOn?.getTime() ?? Date.now() + 50 * 60 * 1000
+  };
 }
 
 function accountToUser(

@@ -51,8 +51,36 @@ function migrate(db: DatabaseSync): void {
       PRIMARY KEY(user_key, application_id)
     );
     CREATE INDEX IF NOT EXISTS recent_order_idx ON recent(user_key, launched_at DESC);
+    CREATE TABLE IF NOT EXISTS access_users (
+      object_id TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      email TEXT,
+      role TEXT NOT NULL CHECK(role IN ('User', 'Maintainer')),
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS application_overrides (
+      id TEXT PRIMARY KEY,
+      definition_json TEXT,
+      is_deleted INTEGER NOT NULL DEFAULT 0,
+      updated_by TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_by TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     INSERT OR IGNORE INTO migrations(version) VALUES (1);
   `);
+  const columns = db.prepare("PRAGMA table_info('sessions')").all() as Array<{ name: string }>;
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has('access_token')) db.exec('ALTER TABLE sessions ADD COLUMN access_token TEXT;');
+  if (!names.has('token_expires_at'))
+    db.exec('ALTER TABLE sessions ADD COLUMN token_expires_at INTEGER;');
+  db.exec('INSERT OR IGNORE INTO migrations(version) VALUES (2);');
 }
 
 export function getDatabase(databasePath = getConfig().DATABASE_PATH): DatabaseSync {

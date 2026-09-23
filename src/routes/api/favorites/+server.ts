@@ -15,7 +15,11 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
   if (!locals.user) throw error(401, 'Authentication required');
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return json({ message: 'Invalid favorites' }, { status: 400 });
-  const available = new Set(visibleApplications(loadRegistry(), locals.user).map((app) => app.id));
+  const available = new Set(
+    visibleApplications(loadRegistry(), locals.user && locals.accessRole ? locals.user : null).map(
+      (app) => app.id
+    )
+  );
   const ids = [...new Set(parsed.data.ids)].filter((id) => available.has(id));
   saveFavorites(userKey(locals.user), ids);
   return json({ ids });

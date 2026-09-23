@@ -4,6 +4,7 @@ import YAML from 'yaml';
 import { z } from 'zod';
 import type { PublicApplication, SessionUser } from '$lib/types';
 import { getConfig } from './config';
+import { getDatabase } from './database';
 
 const healthSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('none') }),
@@ -15,7 +16,7 @@ const healthSchema = z.discriminatedUnion('type', [
   })
 ]);
 
-const applicationSchema = z.object({
+export const applicationSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   display: z.object({
     name: z.string().min(1),
@@ -59,8 +60,68 @@ export function loadRegistry(registryPath = getConfig().APPLICATION_REGISTRY_PAT
     if (ids.has(app.id)) throw new Error(`Invalid application registry: duplicate id "${app.id}"`);
     ids.add(app.id);
   }
-  if (registryPath === getConfig().APPLICATION_REGISTRY_PATH) cached = parsed.data;
-  return parsed.data;
+  const registry = applyOverrides(parsed.data);
+  if (registryPath === getConfig().APPLICATION_REGISTRY_PATH) cached = registry;
+  return registry;
+}
+
+function applyOverrides(registry: Registry): Registry {
+  const rows = getDatabase()
+    .prepare('SELECT id, definition_json, is_deleted FROM application_overrides')
+    .all() as Array<{ id: string; definition_json: string | null; is_deleted: number }>;
+  const byId = new Map(registry.applications.map((app) => [app.id, app]));
+  for (const row of rows) {
+    if (row.is_deleted) byId.delete(row.id);
+    else if (row.definition_json)
+      byId.set(row.id, applicationSchema.parse(JSON.parse(row.definition_json)));
+  }
+  const categories = new Map(registry.categories.map((category) => [category.name, category]));
+  for (const app of byId.values()) {
+    if (!categories.has(app.display.category))
+      categories.set(app.display.category, {
+        name: app.display.category,
+        order: categories.size * 100 + 100
+      });
+  }
+  return { categories: [...categories.values()], applications: [...byId.values()] };
+}
+
+export function saveApplicationOverride(app: RegistryApplication, actorId: string): void {
+  getDatabase()
+    .prepare(
+      `INSERT INTO application_overrides(id, definition_json, is_deleted, updated_by)
+    VALUES (?, ?, 0, ?) ON CONFLICT(id) DO UPDATE SET definition_json=excluded.definition_json,
+    is_deleted=0, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP`
+    )
+    .run(app.id, JSON.stringify(app), actorId);
+  cached = undefined;
+}
+
+export function deleteApplicationOverride(id: string, actorId: string): void {
+  getDatabase()
+    .prepare(
+      `INSERT INTO application_overrides(id, definition_json, is_deleted, updated_by)
+    VALUES (?, NULL, 1, ?) ON CONFLICT(id) DO UPDATE SET definition_json=NULL, is_deleted=1,
+    updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP`
+    )
+    .run(id, actorId);
+  cached = undefined;
+}
+
+export function getSiteSetting(key: string, fallback: string): string {
+  const row = getDatabase().prepare('SELECT value FROM site_settings WHERE key=?').get(key) as
+    { value: string } | undefined;
+  return row?.value ?? fallback;
+}
+
+export function saveSiteSetting(key: string, value: string, actorId: string): void {
+  getDatabase()
+    .prepare(
+      `INSERT INTO site_settings(key, value, updated_by) VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by,
+    updated_at=CURRENT_TIMESTAMP`
+    )
+    .run(key, value, actorId);
 }
 
 export function visibleApplications(

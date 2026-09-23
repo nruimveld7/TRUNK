@@ -1,9 +1,11 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { AppWindow, Clock3, Heart, House, Menu, ServerCog, X } from 'lucide-svelte';
+  import { AppWindow, Clock3, Heart, House, Menu, Settings2, ServerCog, X } from 'lucide-svelte';
+  import type { AccessRole } from '$lib/types';
   import { sidebarOpen } from '$lib/stores/ui';
 
   export let siteName: string;
+  export let accessRole: AccessRole | null;
 
   const primary = [
     { href: '/', label: 'Home', icon: House },
@@ -41,6 +43,11 @@
     <a href="/status" class:active={active('/status')} on:click={() => sidebarOpen.set(false)}
       ><ServerCog size={18} /><span>System Status</span></a
     >
+    {#if accessRole === 'Maintainer'}
+      <a href="/admin" class:active={active('/admin')} on:click={() => sidebarOpen.set(false)}
+        ><Settings2 size={18} /><span>Administration</span></a
+      >
+    {/if}
   </nav>
   <div class="sidebar-foot"><span class="dot"></span><span>TRUNK platform</span></div>
 </aside>

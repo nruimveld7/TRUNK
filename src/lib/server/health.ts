@@ -49,7 +49,15 @@ async function probe(app: RegistryApplication): Promise<void> {
 
 export function startHealthMonitor(): void {
   if (timers.size) return;
+  refreshHealthMonitor();
+}
+
+export function refreshHealthMonitor(): void {
+  for (const timer of timers.values()) clearInterval(timer);
+  timers.clear();
+  const activeIds = new Set<string>();
   for (const app of loadRegistry().applications) {
+    activeIds.add(app.id);
     void probe(app);
     if (app.health.type === 'http') {
       const seconds = app.health.intervalSeconds ?? getConfig().HEALTH_DEFAULT_INTERVAL_SECONDS;
@@ -58,6 +66,7 @@ export function startHealthMonitor(): void {
       timers.set(app.id, timer);
     }
   }
+  for (const id of records.keys()) if (!activeIds.has(id)) records.delete(id);
 }
 
 export function publicHealth(id: string): HealthPublic {

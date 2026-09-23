@@ -9,9 +9,10 @@ const schema = z.object({ id: z.string() });
 export const POST: RequestHandler = async ({ locals, request }) => {
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return json({ message: 'Invalid application' }, { status: 400 });
-  const application = visibleApplications(loadRegistry(), locals.user).find(
-    (app) => app.id === parsed.data.id
-  );
+  const application = visibleApplications(
+    loadRegistry(),
+    locals.user && locals.accessRole ? locals.user : null
+  ).find((app) => app.id === parsed.data.id);
   if (!application) throw error(404, 'Application not found');
   if (locals.user) recordRecent(userKey(locals.user), application.id);
   return json({ ok: true, url: application.route.url });

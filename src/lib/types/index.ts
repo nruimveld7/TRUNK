@@ -3,6 +3,7 @@ export type HealthState = 'online' | 'degraded' | 'offline' | 'unknown';
 export type Appearance = 'system' | 'light' | 'dark';
 export type LaunchBehavior = 'same' | 'new';
 export type Density = 'comfortable' | 'compact';
+export type AccessRole = 'User' | 'Maintainer';
 
 export interface SessionUser {
   subject: string;
@@ -41,4 +42,11 @@ export interface HealthPublic {
   state: HealthState;
   lastChecked: string | null;
   responseTimeMs: number | null;
+}
+
+export interface ManagedUser {
+  objectId: string;
+  displayName: string;
+  email: string | null;
+  role: AccessRole;
 }

@@ -35,15 +35,22 @@ services:
       PORT: '3000'
       TRUNK_SITE_NAME: ${TRUNK_SITE_NAME:-Operations}
       TRUNK_SITE_DESCRIPTION: ${TRUNK_SITE_DESCRIPTION:-Central launcher for tools and applications}
+      TRUNK_ACCENT_COLOR: ${TRUNK_ACCENT_COLOR:-#2563eb}
       ORIGIN: ${ORIGIN:?Set the externally visible TRUNK origin in .env}
       AUTH_MODE: ${AUTH_MODE:?Set AUTH_MODE=entra in .env}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-}
+      ENTRA_CLIENT_CERT_PRIVATE_KEY_PATH: ${ENTRA_CLIENT_CERT_PRIVATE_KEY_PATH:-}
+      ENTRA_CLIENT_CERT_PUBLIC_CERT_PATH: ${ENTRA_CLIENT_CERT_PUBLIC_CERT_PATH:-}
       ENTRA_REDIRECT_URI: ${ENTRA_REDIRECT_URI:-}
       ENTRA_POST_LOGOUT_REDIRECT_URI: ${ENTRA_POST_LOGOUT_REDIRECT_URI:-}
       SESSION_SECRET: ${SESSION_SECRET:?Set a 32+ character SESSION_SECRET in .env}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-28800}
+      BOOTSTRAP_MAINTAINER_OIDS: ${BOOTSTRAP_MAINTAINER_OIDS:-}
+      SMTP_RELAY_HOST: ${SMTP_RELAY_HOST:-}
+      SMTP_MAIL_FROM: ${SMTP_MAIL_FROM:-}
+      EMAIL_RECIPIENT_OVERRIDE: ${EMAIL_RECIPIENT_OVERRIDE:-}
       DATABASE_PATH: /app/data/trunk.db
       APPLICATION_REGISTRY_PATH: /app/config/applications.yaml
       ENABLE_DEMO_APPS: ${ENABLE_DEMO_APPS:-false}
@@ -53,6 +60,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./config/applications.yaml:/app/config/applications.yaml:ro
+      - ./certs:/app/certs:ro
     networks: [edge]
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/healthz']

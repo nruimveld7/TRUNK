@@ -11,6 +11,8 @@
   $: authenticated = Boolean(data.user);
 
   onMount(() => {
+    document.documentElement.style.setProperty('--accent', data.accentColor);
+    document.documentElement.style.setProperty('--accent-strong', data.accentColor);
     initializeUi(authenticated, data.favoriteIds, data.recentIds, data.preferences);
     applyAppearance(data.preferences.appearance);
     const unsubscribe = preferences.subscribe((value) => applyAppearance(value.appearance));
@@ -34,8 +36,8 @@
     content={data.siteDescription}
   /></svelte:head
 >
-<Sidebar siteName={data.siteName} />
-<Topbar user={data.user} csrfToken={data.csrfToken} />
+<Sidebar siteName={data.siteName} accessRole={data.accessRole} />
+<Topbar user={data.user} csrfToken={data.csrfToken} accessRole={data.accessRole} />
 <main class:compact={$preferences.density === 'compact'}>
   {#if data.mockMode}<div class="mock-banner" role="status">
       Development authentication mode — identities and access are simulated

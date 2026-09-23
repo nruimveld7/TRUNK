@@ -7,6 +7,8 @@ TRUNK is a reusable central launcher for operational and maintenance web applica
 - Stable application catalog with explicit category and application order
 - Coarse guest/authenticated discoverability (downstream apps retain authorization)
 - Microsoft Entra ID authorization-code flow with state, nonce, PKCE, tenant checks, and server sessions
+- Frontend administration for site identity, application catalog, and `User`/`Maintainer` access
+- Microsoft Graph directory search and optional SMTP relay notifications for access changes
 - Server-side search data plus in-page filtering and a keyboard-navigable Ctrl/Cmd+K palette
 - Ordered favorites, recent application history, appearance, launch, and density preferences
 - SQLite persistence for authenticated users; localStorage for guests
@@ -24,9 +26,9 @@ Caddy :80/:443
    ▼
 TRUNK / SvelteKit :3000
    │
-   ├── YAML Application Registry
-   ├── SQLite (WAL)
-   ├── Microsoft Entra ID
+   ├── YAML Registry + SQLite Overrides
+   ├── Microsoft Entra ID + Graph
+   ├── Corporate SMTP Relay (optional)
    └── Health Monitor
             │
             ▼
@@ -86,34 +88,41 @@ Only Caddy publishes host ports 80/443. The `trunk` service is available only as
 
 ## Configuration
 
-| Variable                          | Purpose                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------- |
-| `NODE_ENV`                        | `development`, `test`, or `production`                                                |
-| `TRUNK_SITE_NAME`                 | Site, department, or team label displayed beside TRUNK                                |
-| `TRUNK_SITE_DESCRIPTION`          | Short deployment description used on Home and in page metadata                        |
-| `ORIGIN`                          | Externally visible origin used by SvelteKit, such as `https://trunk.example.internal` |
-| `HOST`, `PORT`                    | Node bind address and internal port; production uses `0.0.0.0:3000`                   |
-| `AUTH_MODE`                       | `mock` for development only or `entra` for production                                 |
-| `ENTRA_TENANT_ID`                 | Intended organization tenant UUID                                                     |
-| `ENTRA_CLIENT_ID`                 | TRUNK app registration (client) UUID                                                  |
-| `ENTRA_CLIENT_SECRET`             | Confidential-client credential, server-side only                                      |
-| `ENTRA_REDIRECT_URI`              | Exact callback: `https://<approved-host>/auth/callback`                               |
-| `ENTRA_POST_LOGOUT_REDIRECT_URI`  | Registered post-logout return: `https://<approved-host>/`                             |
-| `SESSION_SECRET`                  | At least 32 random characters; do not commit                                          |
-| `SESSION_TTL_SECONDS`             | Server session lifetime (default 28800)                                               |
-| `DATABASE_PATH`                   | SQLite path; Compose uses `/app/data/trunk.db`                                        |
-| `APPLICATION_REGISTRY_PATH`       | YAML registry path                                                                    |
-| `ENABLE_DEMO_APPS`                | Explicitly load demo/nonlaunchable records; false in production                       |
-| `HEALTH_DEFAULT_INTERVAL_SECONDS` | Default HTTP probe cadence                                                            |
-| `HEALTH_TIMEOUT_MS`               | Probe timeout                                                                         |
-| `TRUNK_HOSTNAME`                  | Caddy site address (`:80` only for initial local HTTP)                                |
-| `CORPORATE_CA_CERT_PATH`          | Host path to the corporate CA supplied as a Docker build secret                       |
+| Variable                             | Purpose                                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------- |
+| `NODE_ENV`                           | `development`, `test`, or `production`                                                |
+| `TRUNK_SITE_NAME`                    | Site, department, or team label displayed beside TRUNK                                |
+| `TRUNK_SITE_DESCRIPTION`             | Short deployment description used on Home and in page metadata                        |
+| `TRUNK_ACCENT_COLOR`                 | Initial six-digit hex accent color; maintainers can override it in the UI             |
+| `ORIGIN`                             | Externally visible origin used by SvelteKit, such as `https://trunk.example.internal` |
+| `HOST`, `PORT`                       | Node bind address and internal port; production uses `0.0.0.0:3000`                   |
+| `AUTH_MODE`                          | `mock` for development only or `entra` for production                                 |
+| `ENTRA_TENANT_ID`                    | Intended organization tenant UUID                                                     |
+| `ENTRA_CLIENT_ID`                    | TRUNK app registration (client) UUID                                                  |
+| `ENTRA_CLIENT_SECRET`                | Optional confidential-client secret, server-side only                                 |
+| `ENTRA_CLIENT_CERT_PRIVATE_KEY_PATH` | Preferred client certificate private-key path                                         |
+| `ENTRA_CLIENT_CERT_PUBLIC_CERT_PATH` | Preferred client certificate public-cert path                                         |
+| `ENTRA_REDIRECT_URI`                 | Exact callback: `https://<approved-host>/auth/callback`                               |
+| `ENTRA_POST_LOGOUT_REDIRECT_URI`     | Registered post-logout return: `https://<approved-host>/`                             |
+| `SESSION_SECRET`                     | At least 32 random characters; do not commit                                          |
+| `SESSION_TTL_SECONDS`                | Server session lifetime (default 28800)                                               |
+| `BOOTSTRAP_MAINTAINER_OIDS`          | Comma/space-separated Entra object IDs that always receive Maintainer access          |
+| `SMTP_RELAY_HOST`                    | Optional unauthenticated corporate SMTP relay host; port 25                           |
+| `SMTP_MAIL_FROM`                     | Sender address for access-change notifications                                        |
+| `EMAIL_RECIPIENT_OVERRIDE`           | Optional nonproduction recipient override                                             |
+| `DATABASE_PATH`                      | SQLite path; Compose uses `/app/data/trunk.db`                                        |
+| `APPLICATION_REGISTRY_PATH`          | YAML registry path                                                                    |
+| `ENABLE_DEMO_APPS`                   | Explicitly load demo/nonlaunchable records; false in production                       |
+| `HEALTH_DEFAULT_INTERVAL_SECONDS`    | Default HTTP probe cadence                                                            |
+| `HEALTH_TIMEOUT_MS`                  | Probe timeout                                                                         |
+| `TRUNK_HOSTNAME`                     | Caddy site address (`:80` only for initial local HTTP)                                |
+| `CORPORATE_CA_CERT_PATH`             | Host path to the corporate CA supplied as a Docker build secret                       |
 
 Startup validation rejects incomplete Entra configuration and production mock mode. Secrets never enter client bundles or tracked files.
 
 ### Branding and deployment customization
 
-TRUNK is the product identity. `TRUNK_SITE_NAME` and `TRUNK_SITE_DESCRIPTION` customize each deployment at runtime without rebuilding the application. The site name appears in the sidebar, browser title, Home heading, and catalog copy. Application names, categories, descriptions, icons, ordering, URLs, tags, visibility, and health probes are entirely controlled by `config/applications.yaml`.
+TRUNK is the product identity. `TRUNK_SITE_NAME`, `TRUNK_SITE_DESCRIPTION`, and `TRUNK_ACCENT_COLOR` provide deployment defaults without rebuilding. A Maintainer can change the same site identity values and manage application names, categories, descriptions, icons, ordering, URLs, tags, visibility, and health probes at `/admin`. UI changes are stored as SQLite overrides; the checked-in YAML remains the portable seed catalog.
 
 The checked-in registry contains explicit, nonlaunchable industrial demo records. Replace it with the deployment's own registry and set `ENABLE_DEMO_APPS=false` for production. Keep secrets and environment-specific private health endpoints out of public Git history.
 
@@ -153,20 +162,24 @@ Health URLs remain server-side. `/api/applications` only returns public card fie
 
 `health.type` may be `none` or `http`. HTTP probes run inside TRUNK, use a timeout, cache in memory, and map results to online/degraded/offline/unknown. Failures cannot crash the process, and normal users see neither URLs nor raw errors. TRUNK liveness is unauthenticated at `/healthz` and reveals only service/status.
 
-## Authentication
+## Authentication and user management
 
 TRUNK uses a tenant-specific confidential web application through MSAL Node. `/auth/login` starts authorization code + PKCE; `/auth/callback` validates state, nonce, and tenant before creating the server-side identity. The stable persistence key is tenant ID plus Entra object ID, never name or email. Cookies are HttpOnly, SameSite=Lax, and Secure in production. Mutating requests require the per-session CSRF token.
+
+Use a certificate credential in production by placing `entra-client.key` and `entra-client.crt` in the untracked `certs/` directory and configuring their `/app/certs/...` paths. A client secret remains supported as a fallback. The private key is mounted read-only and must never be committed.
+
+Set `BOOTSTRAP_MAINTAINER_OIDS` to at least one trusted Entra object ID before first sign-in. Maintainers can then search the tenant directory and grant either `User` or `Maintainer` access from `/admin`. Signed-in but unassigned people see only guest-visible entries. The Graph search uses the signed-in Maintainer's delegated token and requests `User.ReadBasic.All`; grant tenant consent if organizational policy requires it. These roles apply only to TRUNK, not to downstream applications.
 
 Register these web redirect locations once the permanent hostname is approved:
 
 - Sign-in: `https://<approved-host>/auth/callback`
 - Post logout: `https://<approved-host>/`
 
-No delegated API permission beyond standard OIDC identity scopes is required for this implementation.
+Requested delegated scopes are `openid`, `profile`, `email`, `offline_access`, and `User.ReadBasic.All`.
 
 ## Database and backup
 
-SQLite is stored at `/opt/trunk/data/trunk.db` through the `/app/data` bind mount. WAL and a busy timeout are enabled. Schema migration 1 is applied idempotently at startup and recorded in `migrations`.
+SQLite is stored at `/opt/trunk/data/trunk.db` through the `/app/data` bind mount. WAL and a busy timeout are enabled. Idempotent schema migrations are recorded in `migrations`; current data includes sessions, preferences, launch history, access roles, application overrides, and site settings. Protect the data directory as credential-bearing application state because active Entra access tokens are held in server sessions for directory search.
 
 Back up the database consistently (include `trunk.db`, `trunk.db-wal`, and `trunk.db-shm` while live, or stop TRUNK for a simple file copy), `config/applications.yaml`, and the untracked `.env` through the organization's approved secret/configuration backup system. Source is recoverable from GitHub after repository registration.
 

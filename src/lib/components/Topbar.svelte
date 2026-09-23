@@ -1,16 +1,17 @@
 <script lang="ts">
   import { Search } from 'lucide-svelte';
-  import type { SessionUser } from '$lib/types';
+  import type { AccessRole, SessionUser } from '$lib/types';
   import { paletteOpen } from '$lib/stores/ui';
   import AccountMenu from './AccountMenu.svelte';
   export let user: SessionUser | null;
   export let csrfToken: string;
+  export let accessRole: AccessRole | null;
 </script>
 
 <header class="topbar">
   <button class="search" on:click={() => paletteOpen.set(true)}
     ><Search size={17} /><span>Search tools, apps, equipment...</span><kbd>Ctrl K</kbd></button
-  ><AccountMenu {user} {csrfToken} />
+  ><AccountMenu {user} {csrfToken} {accessRole} />
 </header>
 
 <style>
