@@ -7,7 +7,7 @@ TRUNK is a reusable central launcher for operational and maintenance web applica
 - Stable application catalog with explicit category and application order
 - Coarse guest/authenticated discoverability (downstream apps retain authorization)
 - Microsoft Entra ID authorization-code flow with state, nonce, PKCE, tenant checks, and server sessions
-- Frontend administration for site identity, application catalog, and `User`/`Maintainer` access
+- Frontend administration for site identity, application catalog, and the Maintainer OID list
 - Microsoft Graph directory search and optional SMTP relay notifications for access changes
 - Server-side search data plus in-page filtering and a keyboard-navigable Ctrl/Cmd+K palette
 - Ordered favorites, recent application history, appearance, launch, and density preferences
@@ -162,13 +162,15 @@ Health URLs remain server-side. `/api/applications` only returns public card fie
 
 `health.type` may be `none` or `http`. HTTP probes run inside TRUNK, use a timeout, cache in memory, and map results to online/degraded/offline/unknown. Failures cannot crash the process, and normal users see neither URLs nor raw errors. TRUNK liveness is unauthenticated at `/healthz` and reveals only service/status.
 
-## Authentication and user management
+## Authentication and access levels
 
 TRUNK uses a tenant-specific confidential web application through MSAL Node. `/auth/login` starts authorization code + PKCE; `/auth/callback` validates state, nonce, and tenant before creating the server-side identity. The stable persistence key is tenant ID plus Entra object ID, never name or email. Cookies are HttpOnly, SameSite=Lax, and Secure in production. Mutating requests require the per-session CSRF token.
 
 Use a certificate credential in production by placing `entra-client.key` and `entra-client.crt` in the untracked `certs/` directory and configuring their `/app/certs/...` paths. A client secret remains supported as a fallback. The private key is mounted read-only and must never be committed.
 
-Set `BOOTSTRAP_MAINTAINER_OIDS` to at least one trusted Entra object ID before first sign-in. Maintainers can then search the tenant directory and grant either `User` or `Maintainer` access from `/admin`. Signed-in but unassigned people see only guest-visible entries. The Graph search uses the signed-in Maintainer's delegated token and requests `User.ReadBasic.All`; grant tenant consent if organizational policy requires it. These roles apply only to TRUNK, not to downstream applications.
+TRUNK derives access without maintaining a separate user directory: an unauthenticated session is a `Guest`, every authenticated Entra identity is a `User`, and an authenticated identity whose OID is in the Maintainer list is a `Maintainer`. Only Maintainer OIDs and common display names are stored; regular users are never provisioned into an access table.
+
+Set `BOOTSTRAP_MAINTAINER_OIDS` to at least one trusted Entra object ID before first sign-in. Maintainers can then search the tenant directory and add more Maintainer OIDs from `/admin`. The Graph search uses the signed-in Maintainer's delegated token and requests `User.ReadBasic.All`; grant tenant consent if organizational policy requires it. These access levels apply only to TRUNK, not to downstream applications.
 
 Register these web redirect locations once the permanent hostname is approved:
 
@@ -179,7 +181,7 @@ Requested delegated scopes are `openid`, `profile`, `email`, `offline_access`, a
 
 ## Database and backup
 
-SQLite is stored at `/opt/trunk/data/trunk.db` through the `/app/data` bind mount. WAL and a busy timeout are enabled. Idempotent schema migrations are recorded in `migrations`; current data includes sessions, preferences, launch history, access roles, application overrides, and site settings. Protect the data directory as credential-bearing application state because active Entra access tokens are held in server sessions for directory search.
+SQLite is stored at `/opt/trunk/data/trunk.db` through the `/app/data` bind mount. WAL and a busy timeout are enabled. Idempotent schema migrations are recorded in `migrations`; current data includes sessions, preferences, launch history, the Maintainer OID/name list, application overrides, and site settings. Protect the data directory as credential-bearing application state because active Entra access tokens are held in server sessions for directory search.
 
 Back up the database consistently (include `trunk.db`, `trunk.db-wal`, and `trunk.db-shm` while live, or stop TRUNK for a simple file copy), `config/applications.yaml`, and the untracked `.env` through the organization's approved secret/configuration backup system. Source is recoverable from GitHub after repository registration.
 

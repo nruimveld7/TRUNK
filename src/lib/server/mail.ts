@@ -6,7 +6,7 @@ const clean = (value: string) => value.replace(/[\r\n]/g, '').trim();
 export async function sendAccessNotification(args: {
   recipient: string | null;
   displayName: string;
-  role: 'User' | 'Maintainer' | null;
+  role: 'Maintainer' | null;
   siteName: string;
 }): Promise<void> {
   const config = getConfig();
@@ -14,8 +14,8 @@ export async function sendAccessNotification(args: {
   const sender = clean(config.SMTP_MAIL_FROM);
   if (!config.SMTP_RELAY_HOST || !recipient || !sender) return;
   const subject = args.role
-    ? `${args.siteName} access ${args.role === 'Maintainer' ? 'updated' : 'granted'}`
-    : `${args.siteName} access removed`;
+    ? `${args.siteName} Maintainer access granted`
+    : `${args.siteName} Maintainer access removed`;
   const text = args.role
     ? `Hello ${args.displayName},\n\nYour ${args.siteName} access level is now ${args.role}.`
     : `Hello ${args.displayName},\n\nYour ${args.siteName} access has been removed.`;

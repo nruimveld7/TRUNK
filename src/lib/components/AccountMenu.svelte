@@ -1,86 +1,138 @@
 <script lang="ts">
-  import { ChevronDown, ExternalLink, LogIn, LogOut, Settings, Star, Clock3 } from 'lucide-svelte';
+  import { onMount } from 'svelte';
+  import { Clock3, ExternalLink, LogIn, LogOut, Settings, Star } from 'lucide-svelte';
   import type { AccessRole, SessionUser } from '$lib/types';
   import { preferencesOpen } from '$lib/stores/ui';
+
   export let user: SessionUser | null;
   export let csrfToken: string;
   export let accessRole: AccessRole | null;
+
   let open = false;
-  $: initials =
-    user?.displayName
+  let root: HTMLDivElement;
+  let signingOut = false;
+
+  function resolveInitials(name: string | null, email: string | null, objectId: string | null) {
+    const rawName = (name ?? '').trim();
+    if (rawName) {
+      const commaParts = rawName
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+      const normalized = commaParts.length >= 2 ? `${commaParts[1]} ${commaParts[0]}` : rawName;
+      const parts = normalized.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    }
+    const fallback = (email ?? '').trim() || (objectId ?? '').trim();
+    if (!fallback) return 'G';
+    const parts = fallback
+      .replace(/[@._-]+/g, ' ')
+      .trim()
       .split(/\s+/)
-      .map((part) => part[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase() ?? '';
+      .filter(Boolean);
+    if (parts.length <= 1) return (parts[0] ?? 'G').slice(0, 2).toUpperCase();
+    return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+  }
+
+  $: initials = resolveInitials(
+    user?.displayName ?? null,
+    user?.email ?? null,
+    user?.objectId ?? null
+  );
+
+  onMount(() => {
+    const pointerDown = (event: PointerEvent) => {
+      if (open && !root.contains(event.target as Node)) open = false;
+    };
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') open = false;
+    };
+    window.addEventListener('pointerdown', pointerDown);
+    window.addEventListener('keydown', keyDown);
+    return () => {
+      window.removeEventListener('pointerdown', pointerDown);
+      window.removeEventListener('keydown', keyDown);
+    };
+  });
+
+  async function signOut() {
+    if (signingOut) return;
+    signingOut = true;
+    open = false;
+    await fetch('/auth/logout', {
+      method: 'POST',
+      headers: { 'x-csrf-token': csrfToken }
+    });
+    location.assign('/');
+  }
 </script>
 
-<div class="account">
+<div class="user-menu" bind:this={root}>
   <button
-    class="account-button"
+    type="button"
+    class:user
+    class="user-menu-trigger"
+    aria-label={`Open user menu for ${user?.displayName ?? 'Guest'}`}
+    title="Open user menu"
     aria-haspopup="menu"
     aria-expanded={open}
     on:click={() => (open = !open)}
   >
-    <span class:user-avatar={user} class:guest-avatar={!user}>{user ? initials : '○'}</span>
-    <span class="account-copy"
-      ><strong>{user?.displayName ?? 'Guest'}</strong><small
-        >{user ? (accessRole ?? 'Access pending') : 'Limited access'}</small
-      ></span
-    >
-    <ChevronDown size={15} />
+    {initials}
   </button>
+
   {#if open}
-    <button class="dismiss" aria-label="Close account menu" on:click={() => (open = false)}
-    ></button>
-    <div class="popover" role="menu">
+    <div class="user-menu-popover" role="menu" aria-label="User menu">
       <div class="identity">
-        <span class:user-avatar={user} class:guest-avatar={!user}>{user ? initials : '○'}</span>
+        <span class:user class="identity-avatar">{initials}</span>
         <div>
-          <strong>{user?.displayName ?? 'Guest'}</strong><span
-            >{user?.email ?? 'Limited access'}</span
-          >
+          <strong>{user?.displayName ?? 'Guest'}</strong>
+          <span>{user?.email ?? (user ? accessRole : 'Unauthenticated')}</span>
+          {#if user}<small>{accessRole}</small>{/if}
         </div>
       </div>
-      {#if user?.mock}<div class="mock-label">Development mock identity</div>{/if}
-      {#if user && !accessRole}<div class="pending-label">
-          TRUNK access has not been assigned
-        </div>{/if}
+
       <button
+        type="button"
+        class="user-menu-item"
         role="menuitem"
         on:click={() => {
           preferencesOpen.set(true);
           open = false;
-        }}><Settings size={16} />Preferences</button
+        }}><Settings size={15} />Preferences</button
       >
+
       {#if user}
         {#if accessRole === 'Maintainer'}
-          <a role="menuitem" href="/admin"><Settings size={16} />Administration</a>
+          <a class="user-menu-item" role="menuitem" href="/admin"
+            ><Settings size={15} />Administration</a
+          >
         {/if}
-        <a role="menuitem" href="/favorites"><Star size={16} />Manage Favorites</a>
-        <a role="menuitem" href="/recent"><Clock3 size={16} />Recent Applications</a>
-        {#if !user.mock}<a
+        <a class="user-menu-item" role="menuitem" href="/favorites"><Star size={15} />Favorites</a>
+        <a class="user-menu-item" role="menuitem" href="/recent"
+          ><Clock3 size={15} />Recent Applications</a
+        >
+        {#if !user.mock}
+          <a
+            class="user-menu-item"
             role="menuitem"
             href="https://myaccount.microsoft.com"
             target="_blank"
-            rel="noreferrer">Microsoft Account<ExternalLink size={15} class="end" /></a
-          >{/if}
-        <form method="post" action="/auth/logout">
-          <input type="hidden" name="csrf" value={csrfToken} /><button
-            role="menuitem"
-            class="danger"
-            on:click={(event) => {
-              event.preventDefault();
-              fetch('/auth/logout', {
-                method: 'POST',
-                headers: { 'x-csrf-token': csrfToken }
-              }).then(() => location.assign('/'));
-            }}><LogOut size={16} />Sign Out</button
+            rel="noreferrer">Microsoft Account<ExternalLink size={14} class="end" /></a
           >
-        </form>
+        {/if}
+        <div class="divider"></div>
+        <button
+          type="button"
+          class="user-menu-item danger"
+          role="menuitem"
+          disabled={signingOut}
+          on:click={signOut}><LogOut size={15} />{signingOut ? 'Signing out…' : 'Sign Out'}</button
+        >
       {:else}
-        <a role="menuitem" href="/auth/login" class="signin"
-          ><LogIn size={16} />Sign in with Microsoft</a
+        <a class="user-menu-item signin" role="menuitem" href="/auth/login"
+          ><LogIn size={15} />Sign in with Microsoft</a
         >
       {/if}
     </div>
@@ -88,168 +140,129 @@
 </div>
 
 <style>
-  .account {
+  .user-menu {
     position: relative;
+    justify-self: end;
   }
-  .account-button {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    border: 1px solid transparent;
-    background: transparent;
+  .user-menu-trigger {
+    appearance: none;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-muted);
     color: var(--text);
-    border-radius: 7px;
-    padding: 0.35rem 0.45rem;
-    min-width: 150px;
-    text-align: left;
+    font-size: 13px;
+    font-weight: 760;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
-  .account-button:hover {
+  .user-menu-trigger.user,
+  .identity-avatar.user {
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+    color: var(--accent-strong);
+  }
+  .user-menu-trigger:hover {
     background: var(--surface-muted);
-    border-color: var(--border);
+    border-color: var(--border-strong);
   }
-  .account-copy {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    flex: 1;
-  }
-  .account-copy strong {
-    font-size: 0.8rem;
-    max-width: 110px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .account-copy small {
-    color: var(--muted);
-    font-size: 0.68rem;
-    margin-top: 0.1rem;
-  }
-  .user-avatar,
-  .guest-avatar {
-    width: 30px;
-    height: 30px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    font-size: 0.68rem;
-    font-weight: 700;
-    flex: none;
-  }
-  .user-avatar {
-    background: #dbeafe;
-    color: #1d4ed8;
-  }
-  .guest-avatar {
-    background: var(--surface-muted);
-    color: var(--muted);
-    border: 1px solid var(--border);
-  }
-  .dismiss {
-    position: fixed;
-    inset: 0;
-    border: 0;
-    background: transparent;
-    z-index: 49;
-  }
-  .popover {
+  .user-menu-popover {
     position: absolute;
+    top: calc(100% + 8px);
     right: 0;
-    top: calc(100% + 0.55rem);
     z-index: 50;
-    width: 270px;
-    background: var(--surface);
+    min-width: 250px;
+    padding: 6px;
+    border-radius: 12px;
     border: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
-    border-radius: 9px;
-    padding: 0.4rem;
+    background: var(--surface);
+    box-shadow: 0 12px 28px #0003;
   }
   .identity {
     display: flex;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.65rem 0.6rem 0.8rem;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 0.35rem;
+    padding: 0.55rem 0.55rem 0.7rem;
+    margin-bottom: 0.25rem;
+  }
+  .identity-avatar {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-muted);
+    font-size: 12px;
+    font-weight: 760;
   }
   .identity strong,
-  .identity span {
+  .identity span,
+  .identity small {
     display: block;
   }
   .identity strong {
-    font-size: 0.84rem;
+    font-size: 0.8rem;
   }
   .identity span {
-    color: var(--muted);
-    font-size: 0.72rem;
-    margin-top: 0.15rem;
+    max-width: 175px;
+    margin-top: 0.12rem;
     overflow: hidden;
+    color: var(--muted);
+    font-size: 0.68rem;
     text-overflow: ellipsis;
-    max-width: 185px;
+    white-space: nowrap;
   }
-  .popover button,
-  .popover a {
-    width: 100%;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.58rem 0.65rem;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    text-decoration: none;
-    font: inherit;
-    font-size: 0.79rem;
-    border-radius: 5px;
-    text-align: left;
-  }
-  .popover button:hover,
-  .popover a:hover {
-    background: var(--surface-muted);
-  }
-  .popover form {
-    border-top: 1px solid var(--border);
-    margin-top: 0.35rem;
-    padding-top: 0.35rem;
-  }
-  .danger {
-    color: #dc2626 !important;
-  }
-  .signin {
-    color: var(--accent) !important;
-    font-weight: 600 !important;
-    border-top: 1px solid var(--border);
-    margin-top: 0.35rem;
-  }
-  .mock-label {
-    margin: 0.15rem 0.6rem 0.4rem;
-    padding: 0.28rem 0.4rem;
-    color: #92400e;
-    background: #fef3c7;
-    border-radius: 4px;
-    font-size: 0.66rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+  .identity small {
+    margin-top: 0.22rem;
+    color: var(--accent-strong);
+    font-size: 0.63rem;
     font-weight: 700;
   }
-  .pending-label {
-    margin: 0.15rem 0.6rem 0.4rem;
-    padding: 0.4rem;
-    color: #92400e;
-    background: #fef3c7;
-    border-radius: 4px;
-    font-size: 0.7rem;
+  .user-menu-item {
+    appearance: none;
+    width: 100%;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .user-menu-item:hover:enabled,
+  a.user-menu-item:hover {
+    background: var(--surface-muted);
+  }
+  .user-menu-item:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+  .divider {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--border);
+  }
+  .danger {
+    color: #dc2626;
+  }
+  .signin {
+    color: var(--accent-strong);
   }
   :global(.end) {
     margin-left: auto;
-  }
-  @media (max-width: 600px) {
-    .account-copy {
-      display: none;
-    }
-    .account-button {
-      min-width: auto;
-    }
   }
 </style>

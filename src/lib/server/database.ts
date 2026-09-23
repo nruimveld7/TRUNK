@@ -51,11 +51,9 @@ function migrate(db: DatabaseSync): void {
       PRIMARY KEY(user_key, application_id)
     );
     CREATE INDEX IF NOT EXISTS recent_order_idx ON recent(user_key, launched_at DESC);
-    CREATE TABLE IF NOT EXISTS access_users (
+    CREATE TABLE IF NOT EXISTS maintainers (
       object_id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL,
-      email TEXT,
-      role TEXT NOT NULL CHECK(role IN ('User', 'Maintainer')),
       created_by TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -81,6 +79,16 @@ function migrate(db: DatabaseSync): void {
   if (!names.has('token_expires_at'))
     db.exec('ALTER TABLE sessions ADD COLUMN token_expires_at INTEGER;');
   db.exec('INSERT OR IGNORE INTO migrations(version) VALUES (2);');
+  const legacyAccessTable = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='access_users'")
+    .get();
+  if (legacyAccessTable) {
+    db.exec(`INSERT OR IGNORE INTO maintainers(object_id, display_name, created_by, created_at, updated_at)
+      SELECT object_id, display_name, created_by, created_at, updated_at
+      FROM access_users WHERE role='Maintainer';
+      DROP TABLE access_users;`);
+  }
+  db.exec('INSERT OR IGNORE INTO migrations(version) VALUES (3);');
 }
 
 export function getDatabase(databasePath = getConfig().DATABASE_PATH): DatabaseSync {

@@ -23,13 +23,13 @@ test('guest home, account, search, catalog and health work', async ({ page, requ
 test('mock sign-in exposes authenticated apps and sign-out works', async ({ page }) => {
   await page.goto('/auth/login');
   await waitForHydration(page);
-  await expect(page.getByText('Development User')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Development User/ })).toBeVisible();
   await page.goto('/applications');
   await waitForHydration(page);
   await expect(page.getByTestId('app-card')).toHaveCount(10);
   await page.getByRole('button', { name: /Development User/ }).click();
   await page.getByRole('menuitem', { name: 'Sign Out' }).click();
-  await expect(page.getByText('Guest')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Guest/ })).toBeVisible();
 });
 
 test('mock maintainer can open frontend administration', async ({ page }) => {
@@ -40,8 +40,8 @@ test('mock maintainer can open frontend administration', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Site identity' })).toBeVisible();
   await page.getByRole('button', { name: 'Applications' }).click();
   await expect(page.getByRole('heading', { name: 'Application catalog' })).toBeVisible();
-  await page.getByRole('button', { name: 'Users' }).click();
-  await expect(page.getByRole('heading', { name: 'TRUNK access' })).toBeVisible();
+  await page.getByRole('button', { name: 'Maintainers' }).click();
+  await expect(page.getByRole('heading', { name: 'Maintainer access' })).toBeVisible();
   await expect(page.getByRole('main').getByText('Development User')).toBeVisible();
 });
 

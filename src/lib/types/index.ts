@@ -44,9 +44,7 @@ export interface HealthPublic {
   responseTimeMs: number | null;
 }
 
-export interface ManagedUser {
+export interface MaintainerEntry {
   objectId: string;
   displayName: string;
-  email: string | null;
-  role: AccessRole;
 }

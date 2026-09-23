@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import type { AccessRole, ManagedUser, Visibility } from '$lib/types';
+  import type { MaintainerEntry, Visibility } from '$lib/types';
   import { invalidateAll } from '$app/navigation';
 
   type Application = PageData['registryApplications'][number];
   type DirectoryUser = { objectId: string; displayName: string; email: string | null };
-  type Tab = 'site' | 'applications' | 'users';
+  type Tab = 'site' | 'applications' | 'maintainers';
 
   export let data: PageData;
   let tab: Tab = 'site';
@@ -16,12 +16,11 @@
   let siteDescription = data.settings.siteDescription;
   let accentColor = data.settings.accentColor;
   let apps = data.registryApplications;
-  let users = data.managedUsers;
+  let maintainers = data.maintainers;
   let editing: Application | null = null;
   let query = '';
   let directory: DirectoryUser[] = [];
   let searching = false;
-  let selectedRole: AccessRole = 'User';
   let manualObjectId = '';
   let manualName = '';
   let manualEmail = '';
@@ -107,27 +106,27 @@
     directory = (await response.json()).users;
   }
 
-  async function saveUser(user: DirectoryUser | ManagedUser, role = selectedRole) {
-    const response = await fetch('/api/admin/users', {
+  async function saveMaintainer(person: DirectoryUser) {
+    const response = await fetch('/api/admin/maintainers', {
       method: 'POST',
       headers: csrfHeaders,
       body: JSON.stringify({
-        objectId: user.objectId,
-        displayName: user.displayName,
-        email: user.email,
-        role
+        objectId: person.objectId,
+        displayName: person.displayName,
+        email: person.email
       })
     });
     if (!response.ok) return notice(await responseMessage(response), true);
-    users = [...users.filter((item) => item.objectId !== user.objectId), { ...user, role }].sort(
-      (a, b) => a.displayName.localeCompare(b.displayName)
-    );
-    notice(`${user.displayName} saved as ${role}.`);
+    maintainers = [
+      ...maintainers.filter((item) => item.objectId !== person.objectId),
+      { objectId: person.objectId, displayName: person.displayName }
+    ].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    notice(`${person.displayName} added as a Maintainer.`);
     await invalidateAll();
   }
 
-  async function addManualUser() {
-    await saveUser({
+  async function addManualMaintainer() {
+    await saveMaintainer({
       objectId: manualObjectId.trim(),
       displayName: manualName.trim(),
       email: manualEmail.trim() || null
@@ -137,15 +136,18 @@
     manualEmail = '';
   }
 
-  async function removeUser(user: ManagedUser) {
-    if (!confirm(`Remove TRUNK access for ${user.displayName}?`)) return;
-    const response = await fetch(`/api/admin/users/${encodeURIComponent(user.objectId)}`, {
-      method: 'DELETE',
-      headers: { 'x-csrf-token': data.csrfToken }
-    });
+  async function removeMaintainer(maintainer: MaintainerEntry) {
+    if (!confirm(`Remove Maintainer access for ${maintainer.displayName}?`)) return;
+    const response = await fetch(
+      `/api/admin/maintainers/${encodeURIComponent(maintainer.objectId)}`,
+      {
+        method: 'DELETE',
+        headers: { 'x-csrf-token': data.csrfToken }
+      }
+    );
     if (!response.ok) return notice(await responseMessage(response), true);
-    users = users.filter((item) => item.objectId !== user.objectId);
-    notice('User access removed.');
+    maintainers = maintainers.filter((item) => item.objectId !== maintainer.objectId);
+    notice('Maintainer access removed.');
     await invalidateAll();
   }
 </script>
@@ -166,7 +168,9 @@
     <button class:active={tab === 'applications'} on:click={() => (tab = 'applications')}
       >Applications</button
     >
-    <button class:active={tab === 'users'} on:click={() => (tab = 'users')}>Users</button>
+    <button class:active={tab === 'maintainers'} on:click={() => (tab = 'maintainers')}
+      >Maintainers</button
+    >
   </nav>
   {#if message}<div class:error={failure} class="notice" role="status">{message}</div>{/if}
 
@@ -349,10 +353,10 @@
     <section class="panel">
       <div class="panel-heading">
         <div>
-          <h2>TRUNK access</h2>
+          <h2>Maintainer access</h2>
           <p>
-            Roles control this launcher only. Each downstream application remains responsible for
-            its own authorization.
+            Every authenticated Entra user receives User access. Only the OIDs listed here receive
+            Maintainer access; downstream applications still enforce their own authorization.
           </p>
         </div>
       </div>
@@ -363,8 +367,6 @@
           placeholder="Search Microsoft directory"
         /><button class="primary" disabled={searching} on:click={searchDirectory}
           >{searching ? 'Searching…' : 'Search'}</button
-        ><select bind:value={selectedRole} aria-label="Role for new user"
-          ><option>User</option><option>Maintainer</option></select
         >
       </div>
       {#if data.mockMode}
@@ -374,8 +376,8 @@
             bind:value={manualName}
             placeholder="Display name"
           /><input type="email" bind:value={manualEmail} placeholder="Email (optional)" /><button
-            on:click={addManualUser}
-            disabled={!manualObjectId.trim() || !manualName.trim()}>Add user</button
+            on:click={addManualMaintainer}
+            disabled={!manualObjectId.trim() || !manualName.trim()}>Add maintainer</button
           >
         </div>
       {/if}
@@ -385,19 +387,16 @@
                 ><strong>{person.displayName}</strong><small
                   >{person.email ?? 'No email address'}</small
                 ></span
-              ><button on:click={() => saveUser(person)}>Add as {selectedRole}</button>
+              ><button on:click={() => saveMaintainer(person)}>Add maintainer</button>
             </div>{/each}
         </div>{/if}
-      <div class="rows user-rows">
-        {#each users as user (user.objectId)}
+      <div class="rows maintainer-rows">
+        {#each maintainers as maintainer (maintainer.objectId)}
           <div class="row">
-            <div><strong>{user.displayName}</strong><span>{user.email ?? user.objectId}</span></div>
-            <select
-              value={user.role}
-              aria-label={`Role for ${user.displayName}`}
-              on:change={(event) => saveUser(user, event.currentTarget.value as AccessRole)}
-              ><option>User</option><option>Maintainer</option></select
-            ><button class="danger" on:click={() => removeUser(user)}>Remove</button>
+            <div>
+              <strong>{maintainer.displayName}</strong><span>{maintainer.objectId}</span>
+            </div>
+            <button class="danger" on:click={() => removeMaintainer(maintainer)}>Remove</button>
           </div>
         {/each}
       </div>
@@ -598,7 +597,7 @@
   }
   .directory-search {
     display: grid;
-    grid-template-columns: 1fr auto 130px;
+    grid-template-columns: 1fr auto;
     gap: 0.5rem;
     margin-bottom: 0.8rem;
   }
@@ -639,9 +638,6 @@
     color: var(--muted);
     font-size: 0.66rem;
     margin-top: 0.15rem;
-  }
-  .user-rows .row select {
-    width: 130px;
   }
   @media (max-width: 700px) {
     .form-grid {
