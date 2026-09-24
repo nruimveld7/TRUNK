@@ -29,6 +29,7 @@ services:
       dockerfile: Dockerfile
     image: trunk:1.0.0
     restart: unless-stopped
+    user: '${TRUNK_UID:-1000}:${TRUNK_GID:-1000}'
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0

@@ -71,17 +71,44 @@ Create `/opt/trunk/.env` from `.env.example`, use `AUTH_MODE=entra`, replace all
 
 ```bash
 cd /opt/trunk
-docker compose config
-docker compose build
-docker compose up -d
-docker compose ps
+./scripts/StartProd.sh
 ```
+
+The production scripts follow the established ELM operational pattern without a separate development stack:
+
+```bash
+./scripts/StartProd.sh  # validate, build, start/recreate, wait for health, show status
+./scripts/Status.sh     # show production container status
+./scripts/ProdLogs.sh   # follow the last 200 production log lines
+./scripts/StopProd.sh   # stop containers while preserving data and Caddy volumes
+```
+
+`StartProd.sh` uses `.env` by default. Set `TRUNK_ENV_FILE=/path/to/file` to use a different environment file. It runs the containers as the invoking account's UID/GID so the SQLite bind mount and read-only certificate files remain accessible. Running it again after changing `.env`, certificates, or source safely rebuilds and recreates the stack.
+
+### Initial production integration checklist
+
+1. Choose the permanent HTTPS URL and create its DNS record pointing to the TRUNK VM.
+2. Decide whether Caddy can obtain a publicly trusted certificate or must use the organization's internal PKI. Do not start production until the hostname and certificate policy are known.
+3. Create a tenant-specific Microsoft Entra web app registration for TRUNK.
+4. Add these Web redirect URIs, using the exact permanent origin:
+   - `https://<trunk-host>/auth/callback`
+   - `https://<trunk-host>/`
+5. Add Microsoft Graph delegated permission `User.ReadBasic.All` and grant tenant consent if required by policy. TRUNK also requests the standard `openid`, `profile`, `email`, and `offline_access` scopes.
+6. Create or select the client certificate. Upload only its public certificate to the Entra app registration. Place the private key at `certs/entra-client.key` and the public certificate at `certs/entra-client.crt`; never commit either file.
+7. Copy `.env.example` to the untracked `.env` file and set:
+   - `ORIGIN`, `TRUNK_HOSTNAME`, and both Entra redirect values to the permanent HTTPS URL.
+   - `AUTH_MODE=entra`, the tenant ID, client ID, and certificate paths.
+   - A new 32+ character `SESSION_SECRET`.
+   - At least one trusted Entra OID in `BOOTSTRAP_MAINTAINER_OIDS`.
+   - `ENABLE_DEMO_APPS=false` for production.
+   - The SMTP relay host and sender address if access notifications are wanted.
+8. Ensure inbound TCP 80/443 and any required outbound Entra, Graph, SMTP-relay, DNS, and certificate-authority traffic are allowed.
+9. Run `./scripts/StartProd.sh`, browse to the permanent URL, sign in as the bootstrap Maintainer, and confirm that `/admin` is available.
 
 On a network that requires a private package-registry or TLS-inspection CA, set `CORPORATE_CA_CERT_PATH` and build with the optional override:
 
 ```bash
-docker compose -f compose.yml -f compose.corporate-ca.yml.example build
-docker compose up -d
+./scripts/StartProd.sh
 ```
 
 Only Caddy publishes host ports 80/443. The `trunk` service is available only as `trunk:3000` on the Compose bridge. Both services use `restart: unless-stopped`; the application is non-root, read-only except for `/app/data`, drops all capabilities, and has no Docker socket.
